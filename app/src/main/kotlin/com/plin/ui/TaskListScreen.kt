@@ -1,7 +1,10 @@
 package com.plin.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,8 +31,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.plin.domain.enums.TaskStatus
@@ -37,9 +45,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+private val CheckGreen = Color(0xFF16A34A)
+
 /**
  * First Plin screen: add a task and see the list from the local database.
- * Tapping a task opens an inspect dialog with details and delete.
+ *
+ * Short click marks a task completed; long press opens the inspect dialog.
  */
 @Composable
 fun TaskListScreen(
@@ -47,7 +58,8 @@ fun TaskListScreen(
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     var draft by rememberSaveable { mutableStateOf("") }
-    var selectedTask by remember { mutableStateOf<Task?>(null) }
+    var selectedTaskId by remember { mutableStateOf<Long?>(null) }
+    val selectedTask = tasks.find { it.id == selectedTaskId }
 
     Column(
         modifier = Modifier
@@ -60,7 +72,7 @@ fun TaskListScreen(
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = "Add a task and feel it land on the list.",
+            text = "Tap to complete · long-press for details.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
@@ -108,7 +120,8 @@ fun TaskListScreen(
                 items(tasks, key = { it.id }) { task ->
                     TaskRow(
                         task = task,
-                        onClick = { selectedTask = task },
+                        onClick = { viewModel.completeTask(task) },
+                        onLongClick = { selectedTaskId = task.id },
                     )
                 }
             }
@@ -118,42 +131,66 @@ fun TaskListScreen(
     selectedTask?.let { task ->
         TaskInspectDialog(
             task = task,
-            onDismiss = { selectedTask = null },
+            onDismiss = { selectedTaskId = null },
+            onStatusChange = { status -> viewModel.setStatus(task, status) },
             onDelete = {
                 viewModel.deleteTask(task)
-                selectedTask = null
+                selectedTaskId = null
             },
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TaskRow(
     task: Task,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val isDone = task.status == TaskStatus.COMPLETED
-    Text(
-        text = task.title,
-        style = MaterialTheme.typography.titleMedium,
-        textDecoration = if (isDone) TextDecoration.LineThrough else null,
-        color = MaterialTheme.colorScheme.onBackground.copy(
-            alpha = if (isDone) 0.45f else 1f,
-        ),
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-    )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+    ) {
+        Text(
+            text = task.title,
+            style = MaterialTheme.typography.titleMedium,
+            textDecoration = if (isDone) TextDecoration.LineThrough else null,
+            color = MaterialTheme.colorScheme.onBackground.copy(
+                alpha = if (isDone) 0.45f else 1f,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 28.dp)
+                .align(Alignment.CenterStart),
+        )
+        if (isDone) {
+            Text(
+                text = "✓",
+                color = CheckGreen,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
+    }
 }
 
 /**
- * Inspect window: shows task details and a delete action.
+ * Inspect window: shows task details, editable status, and delete.
  */
 @Composable
 private fun TaskInspectDialog(
     task: Task,
     onDismiss: () -> Unit,
+    onStatusChange: (TaskStatus) -> Unit,
     onDelete: () -> Unit,
 ) {
     AlertDialog(
@@ -162,7 +199,10 @@ private fun TaskInspectDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 DetailRow(label = "Name", value = task.title)
-                DetailRow(label = "Status", value = task.status.name)
+                StatusDetailRow(
+                    status = task.status,
+                    onStatusChange = onStatusChange,
+                )
                 DetailRow(label = "Created", value = formatCreatedAt(task.createdAt))
             }
         },
@@ -177,6 +217,51 @@ private fun TaskInspectDialog(
             }
         },
     )
+}
+
+@Composable
+private fun StatusDetailRow(
+    status: TaskStatus,
+    onStatusChange: (TaskStatus) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = "Status",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Box {
+            Text(
+                text = status.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable { menuOpen = true }
+                    .padding(vertical = 2.dp),
+            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                TaskStatus.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.name) },
+                        onClick = {
+                            onStatusChange(option)
+                            menuOpen = false
+                        },
+                    )
+                }
+            }
+        }
+        Text(
+            text = "Tap to change",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+        )
+    }
 }
 
 @Composable

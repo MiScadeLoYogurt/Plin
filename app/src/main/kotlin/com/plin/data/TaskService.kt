@@ -1,5 +1,6 @@
 package com.plin.data
 
+import com.plin.domain.enums.TaskStatus
 import com.plin.domain.models.Task
 
 /**
@@ -16,6 +17,14 @@ class TaskService(private val taskDao: TaskDao) {
         val trimmed = title.trim()
         require(trimmed.isNotEmpty()) { "title is required" }
         return taskDao.insert(Task(title = trimmed))
+    }
+
+    suspend fun setStatus(task: Task, status: TaskStatus) {
+        taskDao.update(task.copy(status = status))
+    }
+
+    suspend fun completeTask(task: Task) {
+        setStatus(task, TaskStatus.COMPLETED)
     }
 
     suspend fun deleteTask(task: Task) {

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.plin.data.PlinDatabase
 import com.plin.data.TaskService
+import com.plin.domain.enums.TaskStatus
 import com.plin.domain.models.Task
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,18 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
     fun addTask(title: String) {
         viewModelScope.launch {
             taskService.addTask(title)
+        }
+    }
+
+    fun completeTask(task: Task) {
+        viewModelScope.launch {
+            taskService.completeTask(task)
+        }
+    }
+
+    fun setStatus(task: Task, status: TaskStatus) {
+        viewModelScope.launch {
+            taskService.setStatus(task, status)
         }
     }
 
