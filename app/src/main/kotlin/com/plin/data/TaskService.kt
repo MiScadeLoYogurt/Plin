@@ -17,4 +17,8 @@ class TaskService(private val taskDao: TaskDao) {
         require(trimmed.isNotEmpty()) { "title is required" }
         return taskDao.insert(Task(title = trimmed))
     }
+
+    suspend fun deleteTask(task: Task) {
+        taskDao.delete(task)
+    }
 }

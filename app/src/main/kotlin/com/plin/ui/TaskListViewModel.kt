@@ -32,4 +32,10 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
             taskService.addTask(title)
         }
     }
+
+    fun deleteTask(task: Task) {
+        viewModelScope.launch {
+            taskService.deleteTask(task)
+        }
+    }
 }
