@@ -13,7 +13,7 @@ import com.plin.domain.models.Task
  * Defines which tables exist and provides access to [TaskDao].
  * The actual data file lives on the device; this class opens and manages it.
  */
-@Database(entities = [Task::class], version = 1, exportSchema = false)
+@Database(entities = [Task::class], version = 5, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class PlinDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
@@ -28,7 +28,7 @@ abstract class PlinDatabase : RoomDatabase() {
                     context.applicationContext,
                     PlinDatabase::class.java,
                     "plin.db",
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
         }
     }

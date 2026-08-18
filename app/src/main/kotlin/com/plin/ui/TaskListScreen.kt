@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.plin.domain.enums.TaskCategory
 import com.plin.domain.enums.TaskStatus
 import com.plin.domain.models.Task
 import java.time.Instant
@@ -50,16 +51,17 @@ private val CheckGreen = Color(0xFF16A34A)
 /**
  * First Plin screen: add a task and see the list from the local database.
  *
- * Short click marks a task completed; long press opens the inspect dialog.
+ * Short click toggles completed/pending; long press opens the inspect dialog.
  */
 @Composable
 fun TaskListScreen(
     viewModel: TaskListViewModel = viewModel(),
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
-    var draft by rememberSaveable { mutableStateOf("") }
-    var selectedTaskId by remember { mutableStateOf<Long?>(null) }
-    val selectedTask = tasks.find { it.id == selectedTaskId }
+    val currentWeek by viewModel.currentWeek.collectAsStateWithLifecycle()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedTaskKey by remember { mutableStateOf<String?>(null) }
+    val selectedTask = tasks.find { "${it.id}-${it.instanceNumber}" == selectedTaskKey }
 
     Column(
         modifier = Modifier
@@ -71,37 +73,26 @@ fun TaskListScreen(
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.primary,
         )
+        currentWeek?.let { week ->
+            Text(
+                text = week.displayLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+            )
+        }
         Text(
-            text = "Tap to complete · long-press for details.",
+            text = "Tap to toggle done · long-press for details.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Row(
+        Button(
+            onClick = { showAddDialog = true },
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                label = { Text("New task") },
-            )
-            Button(
-                onClick = {
-                    val title = draft.trim()
-                    if (title.isNotEmpty()) {
-                        viewModel.addTask(title)
-                        draft = ""
-                    }
-                },
-            ) {
-                Text("Add")
-            }
+            Text("Add task")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -117,25 +108,36 @@ fun TaskListScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
-                items(tasks, key = { it.id }) { task ->
+                items(tasks, key = { "${it.id}-${it.instanceNumber}" }) { task ->
                     TaskRow(
                         task = task,
-                        onClick = { viewModel.completeTask(task) },
-                        onLongClick = { selectedTaskId = task.id },
+                        onClick = { viewModel.toggleTaskCompletion(task) },
+                        onLongClick = { selectedTaskKey = "${task.id}-${task.instanceNumber}" },
                     )
                 }
             }
         }
     }
 
+    if (showAddDialog) {
+        AddTaskDialog(
+            onDismiss = { showAddDialog = false },
+            onSave = { title, category, isWeekly ->
+                viewModel.addTask(title, category, isWeekly)
+                showAddDialog = false
+            },
+        )
+    }
+
     selectedTask?.let { task ->
         TaskInspectDialog(
             task = task,
-            onDismiss = { selectedTaskId = null },
+            onDismiss = { selectedTaskKey = null },
+            onUpdate = { updated -> viewModel.updateTask(updated) },
             onStatusChange = { status -> viewModel.setStatus(task, status) },
             onDelete = {
                 viewModel.deleteTask(task)
-                selectedTaskId = null
+                selectedTaskKey = null
             },
         )
     }
@@ -184,21 +186,146 @@ private fun TaskRow(
 }
 
 /**
- * Inspect window: shows task details, editable status, and delete.
+ * Form for creating a task. Only user-editable fields — no ids or timestamps.
+ */
+@Composable
+private fun AddTaskDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, category: TaskCategory, isWeekly: Boolean) -> Unit,
+) {
+    var title by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf(TaskCategory.GENERIC) }
+    var isWeekly by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New task") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Title") },
+                )
+                CategoryPickerRow(
+                    category = category,
+                    onCategoryChange = { category = it },
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isWeekly,
+                        onCheckedChange = { isWeekly = it },
+                    )
+                    Text(
+                        text = "Repeat every week",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = title.trim()
+                    if (trimmed.isNotEmpty()) {
+                        onSave(trimmed, category, isWeekly)
+                    }
+                },
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
+@Composable
+private fun CategoryPickerRow(
+    category: TaskCategory,
+    onCategoryChange: (TaskCategory) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = "Category",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+        Box {
+            Text(
+                text = formatCategory(category),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable { menuOpen = true }
+                    .padding(vertical = 2.dp),
+            )
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                TaskCategory.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(formatCategory(option)) },
+                        onClick = {
+                            onCategoryChange(option)
+                            menuOpen = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Inspect window: edit task details, change status, or delete.
  */
 @Composable
 private fun TaskInspectDialog(
     task: Task,
     onDismiss: () -> Unit,
+    onUpdate: (Task) -> Unit,
     onStatusChange: (TaskStatus) -> Unit,
     onDelete: () -> Unit,
 ) {
+    var title by remember(task.id, task.instanceNumber) { mutableStateOf(task.title) }
+    var category by remember(task.id, task.instanceNumber) { mutableStateOf(task.category) }
+
+    fun saveEditsAndDismiss() {
+        val trimmed = title.trim()
+        if (trimmed.isNotEmpty()) {
+            val updated = task.copy(title = trimmed, category = category)
+            if (updated.title != task.title || updated.category != task.category) {
+                onUpdate(updated)
+            }
+        }
+        onDismiss()
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { saveEditsAndDismiss() },
         title = { Text("Task details") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                DetailRow(label = "Name", value = task.title)
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Name") },
+                )
+                CategoryPickerRow(
+                    category = category,
+                    onCategoryChange = { category = it },
+                )
                 StatusDetailRow(
                     status = task.status,
                     onStatusChange = onStatusChange,
@@ -212,7 +339,7 @@ private fun TaskInspectDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = { saveEditsAndDismiss() }) {
                 Text("Close")
             }
         },
@@ -245,7 +372,7 @@ private fun StatusDetailRow(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
             ) {
-                TaskStatus.entries.forEach { option ->
+                TaskStatus.entries.filter { it != TaskStatus.ARCHIVED }.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.name) },
                         onClick = {
@@ -278,6 +405,9 @@ private fun DetailRow(label: String, value: String) {
         )
     }
 }
+
+private fun formatCategory(category: TaskCategory): String =
+    category.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }
 
 private fun formatCreatedAt(epochMillis: Long): String {
     val formatter = DateTimeFormatter

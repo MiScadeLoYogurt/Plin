@@ -1,19 +1,22 @@
 package com.plin.domain.models
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
+import com.plin.domain.enums.TaskCategory
 import com.plin.domain.enums.TaskStatus
 
 /**
  * A single to-do item in the Plin task list.
  *
- * This is both the app's task model and a Room table row (`tasks`).
+ * [id] identifies the task across weekly versions; [instanceNumber] starts at 0
+ * and increments when a new weekly copy is generated. The calendar week comes from [createdAt].
  */
-@Entity(tableName = "tasks")
+@Entity(tableName = "tasks", primaryKeys = ["id", "instanceNumber"])
 data class Task(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    val id: Long,
+    val instanceNumber: Int = 0,
     val title: String,
     val status: TaskStatus = TaskStatus.PENDING,
+    val category: TaskCategory = TaskCategory.GENERIC,
+    val isWeekly: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
 )

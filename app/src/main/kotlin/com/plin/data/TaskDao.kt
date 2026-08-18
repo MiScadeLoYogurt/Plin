@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
     @Insert
-    suspend fun insert(task: Task): Long
+    suspend fun insert(task: Task)
 
     @Update
     suspend fun update(task: Task)
@@ -24,6 +24,47 @@ interface TaskDao {
     @Delete
     suspend fun delete(task: Task)
 
-    @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
-    fun observeAll(): Flow<List<Task>>
+    @Query("SELECT COALESCE(MAX(id), 0) + 1 FROM tasks")
+    suspend fun getNextTaskId(): Long
+
+    @Query("SELECT DISTINCT id FROM tasks WHERE isWeekly = 1")
+    suspend fun getWeeklyTaskIds(): List<Long>
+
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE id = :taskId
+        AND createdAt >= :startMillis AND createdAt < :endMillisExclusive
+        ORDER BY instanceNumber DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getInstanceInWeekRange(
+        taskId: Long,
+        startMillis: Long,
+        endMillisExclusive: Long,
+    ): Task?
+
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE id = :taskId
+        ORDER BY instanceNumber DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getLatestForTask(taskId: Long): Task?
+
+    @Query(
+        """
+        SELECT * FROM tasks
+        WHERE createdAt >= :startMillis AND createdAt < :endMillisExclusive
+        AND status != 'ARCHIVED'
+        ORDER BY createdAt DESC
+        """,
+    )
+    fun observeForWeekRange(
+        startMillis: Long,
+        endMillisExclusive: Long,
+    ): Flow<List<Task>>
 }

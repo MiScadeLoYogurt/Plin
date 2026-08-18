@@ -39,6 +39,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    applicationVariants.configureEach {
+        outputs.configureEach {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                if (buildType.name == "release") "plin.apk" else "plin-${buildType.name}.apk"
+        }
+    }
 }
 
 dependencies {
