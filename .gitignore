@@ -1,0 +1,31 @@
+# Gradle / build
+.gradle/
+build/
+**/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Local machine / IDE
+local.properties
+*.iml
+.idea/
+.DS_Store
+*.swp
+*~
+
+# Kotlin compiler / tooling
+.kotlin/
+*.log
+
+# Native / captures
+.externalNativeBuild/
+.cxx/
+captures/
+output.json
+
+# Leftovers
+backend/
+gradle_scripts/
