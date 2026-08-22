@@ -1,6 +1,8 @@
 package com.plin.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -41,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.plin.domain.enums.TaskCategory
 import com.plin.domain.enums.TaskStatus
 import com.plin.domain.models.Task
+import com.plin.ui.theme.TaskAppearance
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -151,15 +155,28 @@ private fun TaskRow(
     onLongClick: () -> Unit,
 ) {
     val isDone = task.status == TaskStatus.COMPLETED
+    val categoryColor = TaskAppearance.colorForCategory(task.category)
+    val backgroundColor = TaskAppearance.backgroundForCategory(task.category)
 
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(TaskAppearance.shape)
+            .background(backgroundColor)
+            .border(
+                width = TaskAppearance.borderWidth,
+                color = categoryColor.copy(alpha = if (isDone) 0.35f else 0.85f),
+                shape = TaskAppearance.shape,
+            )
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(
+                horizontal = TaskAppearance.contentPaddingHorizontal,
+                vertical = TaskAppearance.contentPaddingVertical,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = task.title,
@@ -168,10 +185,13 @@ private fun TaskRow(
             color = MaterialTheme.colorScheme.onBackground.copy(
                 alpha = if (isDone) 0.45f else 1f,
             ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 28.dp)
-                .align(Alignment.CenterStart),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "${task.points} pts",
+            style = MaterialTheme.typography.bodyMedium,
+            color = categoryColor.copy(alpha = if (isDone) 0.45f else 0.9f),
+            modifier = Modifier.padding(start = 8.dp),
         )
         if (isDone) {
             Text(
@@ -179,7 +199,7 @@ private fun TaskRow(
                 color = CheckGreen,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.TopEnd),
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
     }
@@ -298,12 +318,25 @@ private fun TaskInspectDialog(
 ) {
     var title by remember(task.id, task.instanceNumber) { mutableStateOf(task.title) }
     var category by remember(task.id, task.instanceNumber) { mutableStateOf(task.category) }
+    var pointsText by remember(task.id, task.instanceNumber) { mutableStateOf(task.points.toString()) }
+    var isWeekly by remember(task.id, task.instanceNumber) { mutableStateOf(task.isWeekly) }
 
     fun saveEditsAndDismiss() {
         val trimmed = title.trim()
+        val parsedPoints = pointsText.toIntOrNull()?.coerceAtLeast(0) ?: task.points
         if (trimmed.isNotEmpty()) {
-            val updated = task.copy(title = trimmed, category = category)
-            if (updated.title != task.title || updated.category != task.category) {
+            val updated = task.copy(
+                title = trimmed,
+                category = category,
+                points = parsedPoints,
+                isWeekly = isWeekly,
+            )
+            if (
+                updated.title != task.title ||
+                updated.category != task.category ||
+                updated.points != task.points ||
+                updated.isWeekly != task.isWeekly
+            ) {
                 onUpdate(updated)
             }
         }
@@ -326,6 +359,27 @@ private fun TaskInspectDialog(
                     category = category,
                     onCategoryChange = { category = it },
                 )
+                OutlinedTextField(
+                    value = pointsText,
+                    onValueChange = { value ->
+                        if (value.isEmpty() || value.all { it.isDigit() }) {
+                            pointsText = value
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Points") },
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isWeekly,
+                        onCheckedChange = { isWeekly = it },
+                    )
+                    Text(
+                        text = "Repeat every week",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 StatusDetailRow(
                     status = task.status,
                     onStatusChange = onStatusChange,

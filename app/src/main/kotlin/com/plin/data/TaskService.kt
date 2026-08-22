@@ -62,6 +62,7 @@ class TaskService(private val taskDao: TaskDao) {
                     instanceNumber = latest.instanceNumber + 1,
                     title = latest.title,
                     category = latest.category,
+                    points = latest.points,
                     isWeekly = true,
                     status = TaskStatus.PENDING,
                 ),

@@ -8,7 +8,9 @@ enum class TaskCategory {
     FUN,
     PERSONAL_DEVELOPMENT,
     SOCIAL_ACTIVITY,
+    CHORE,
     ADULTING,
+    SPORT,
     HEALTH,
     SPECIAL,
 }

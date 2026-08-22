@@ -17,6 +17,7 @@ data class Task(
     val title: String,
     val status: TaskStatus = TaskStatus.PENDING,
     val category: TaskCategory = TaskCategory.GENERIC,
+    val points: Int = 1,
     val isWeekly: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
 )
