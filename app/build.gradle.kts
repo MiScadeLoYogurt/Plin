@@ -13,8 +13,8 @@ android {
         applicationId = "com.plin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -38,6 +38,18 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.configureEach {
+        val versionLabel = versionName
+        outputs.configureEach {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                if (buildType.name == "release") {
+                    "plin_v_${versionLabel}.apk"
+                } else {
+                    "plin_v_${versionLabel}-${buildType.name}.apk"
+                }
+        }
     }
 }
 

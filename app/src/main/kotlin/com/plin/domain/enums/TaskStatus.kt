@@ -1,9 +1,10 @@
 package com.plin.domain.enums
 
 /**
- * Whether a task is still open or already done.
+ * Task lifecycle: open, done, or archived when a new weekly instance replaces it.
  */
 enum class TaskStatus {
     PENDING,
     COMPLETED,
+    ARCHIVED,
 }

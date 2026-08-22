@@ -12,8 +12,11 @@ import com.plin.domain.models.Task
  *
  * Defines which tables exist and provides access to [TaskDao].
  * The actual data file lives on the device; this class opens and manages it.
+ *
+ * Schema changes should bump [version] and add a Migration that keeps data
+ * (usually ALTER TABLE … ADD COLUMN … DEFAULT …).
  */
-@Database(entities = [Task::class], version = 1, exportSchema = false)
+@Database(entities = [Task::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class PlinDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
@@ -28,7 +31,12 @@ abstract class PlinDatabase : RoomDatabase() {
                     context.applicationContext,
                     PlinDatabase::class.java,
                     "plin.db",
-                ).build().also { instance = it }
+                )
+                    .addMigrations(PlinMigrations.MIGRATION_5_6)
+                    // Pre-v5 schemas changed too much; only wipe those old DBs.
+                    .fallbackToDestructiveMigrationFrom(1, 2, 3, 4)
+                    .build()
+                    .also { instance = it }
             }
         }
     }
