@@ -7,5 +7,5 @@ import com.plin.domain.models.WeekLayout
  * Add implementations here to generate weekly tasks, reset lists, etc.
  */
 interface WeeklyRoutine {
-    suspend fun run(currentWeek: WeekLayout, previousWeek: WeekLayout)
+    suspend fun run(currentWeek: WeekLayout)
 }

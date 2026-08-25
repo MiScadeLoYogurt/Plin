@@ -16,7 +16,7 @@ import com.plin.domain.models.Task
  * Schema changes should bump [version] and add a Migration that keeps data
  * (usually ALTER TABLE … ADD COLUMN … DEFAULT …).
  */
-@Database(entities = [Task::class], version = 6, exportSchema = false)
+@Database(entities = [Task::class], version = 8, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class PlinDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
@@ -32,7 +32,11 @@ abstract class PlinDatabase : RoomDatabase() {
                     PlinDatabase::class.java,
                     "plin.db",
                 )
-                    .addMigrations(PlinMigrations.MIGRATION_5_6)
+                    .addMigrations(
+                        PlinMigrations.MIGRATION_5_6,
+                        PlinMigrations.MIGRATION_6_7,
+                        PlinMigrations.MIGRATION_7_8,
+                    )
                     // Pre-v5 schemas changed too much; only wipe those old DBs.
                     .fallbackToDestructiveMigrationFrom(1, 2, 3, 4)
                     .build()
