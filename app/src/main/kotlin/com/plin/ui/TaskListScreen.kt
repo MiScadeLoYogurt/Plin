@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.plin.domain.enums.TaskCategory
-import com.plin.domain.enums.TaskStatus
 import com.plin.domain.models.Task
 import com.plin.ui.theme.TaskAppearance
 import java.time.Instant
@@ -53,9 +52,9 @@ import java.time.format.FormatStyle
 private val CheckGreen = Color(0xFF16A34A)
 
 /**
- * First Plin screen: add a task and see the list from the local database.
+ * Main Plin screen: current-week list or full archive, with add / inspect dialogs.
  *
- * Short click toggles completed/pending; long press opens the inspect dialog.
+ * Short click toggles completed; long press opens the inspect dialog.
  */
 @Composable
 fun TaskListScreen(
@@ -63,62 +62,104 @@ fun TaskListScreen(
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val currentWeek by viewModel.currentWeek.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedTaskKey by remember { mutableStateOf<String?>(null) }
     val selectedTask = tasks.find { "${it.id}-${it.instanceNumber}" == selectedTaskKey }
+    val isArchive = selectedTab == TaskListTab.ARCHIVE
+    val currentWeekKey = currentWeek?.key.orEmpty()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 48.dp),
-    ) {
-        Text(
-            text = "Plin",
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        currentWeek?.let { week ->
-            Text(
-                text = week.displayLabel,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
-            )
-        }
-        Text(
-            text = "Tap to toggle done · long-press for details.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = { showAddDialog = true },
-            modifier = Modifier.fillMaxWidth(),
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 48.dp),
         ) {
-            Text("Add task")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (tasks.isEmpty()) {
             Text(
-                text = "No tasks yet.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                text = "Plin",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                items(tasks, key = { "${it.id}-${it.instanceNumber}" }) { task ->
-                    TaskRow(
-                        task = task,
-                        onClick = { viewModel.toggleTaskCompletion(task) },
-                        onLongClick = { selectedTaskKey = "${task.id}-${task.instanceNumber}" },
+            if (isArchive) {
+                Text(
+                    text = "Archive",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                )
+                Text(
+                    text = "Past weeks only. Set assigned week to the current week to restore.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                )
+            } else {
+                currentWeek?.let { week ->
+                    Text(
+                        text = week.displayLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
                     )
                 }
+                Text(
+                    text = "Tap to toggle done · long-press for details.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (tasks.isEmpty()) {
+                Text(
+                    text = if (isArchive) "No tasks in archive." else "No tasks yet.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
+                ) {
+                    items(tasks, key = { "${it.id}-${it.instanceNumber}" }) { task ->
+                        TaskRow(
+                            task = task,
+                            showWeek = isArchive,
+                            onClick = { viewModel.toggleTaskCompletion(task) },
+                            onLongClick = { selectedTaskKey = "${task.id}-${task.instanceNumber}" },
+                        )
+                    }
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { viewModel.toggleTab() },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(20.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) {
+            Text(
+                text = if (isArchive) "Week" else "Archive",
+                modifier = Modifier.padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+
+        if (!isArchive) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Text(
+                    text = "Add",
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }
@@ -136,9 +177,10 @@ fun TaskListScreen(
     selectedTask?.let { task ->
         TaskInspectDialog(
             task = task,
+            currentWeekKey = currentWeekKey,
             onDismiss = { selectedTaskKey = null },
             onUpdate = { updated -> viewModel.updateTask(updated) },
-            onStatusChange = { status -> viewModel.setStatus(task, status) },
+            onCompletedChange = { completed -> viewModel.setCompleted(task, completed) },
             onDelete = {
                 viewModel.deleteTask(task)
                 selectedTaskKey = null
@@ -151,14 +193,15 @@ fun TaskListScreen(
 @Composable
 private fun TaskRow(
     task: Task,
+    showWeek: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val isDone = task.status == TaskStatus.COMPLETED
+    val isDone = task.completed
     val categoryColor = TaskAppearance.colorForCategory(task.category)
     val backgroundColor = TaskAppearance.backgroundForCategory(task.category)
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(TaskAppearance.shape)
@@ -176,30 +219,39 @@ private fun TaskRow(
                 horizontal = TaskAppearance.contentPaddingHorizontal,
                 vertical = TaskAppearance.contentPaddingVertical,
             ),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = task.title,
-            style = MaterialTheme.typography.titleMedium,
-            textDecoration = if (isDone) TextDecoration.LineThrough else null,
-            color = MaterialTheme.colorScheme.onBackground.copy(
-                alpha = if (isDone) 0.45f else 1f,
-            ),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = "${task.points} pts",
-            style = MaterialTheme.typography.bodyMedium,
-            color = categoryColor.copy(alpha = if (isDone) 0.45f else 0.9f),
-            modifier = Modifier.padding(start = 8.dp),
-        )
-        if (isDone) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "✓",
-                color = CheckGreen,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                text = task.title,
+                style = MaterialTheme.typography.titleMedium,
+                textDecoration = if (isDone) TextDecoration.LineThrough else null,
+                color = MaterialTheme.colorScheme.onBackground.copy(
+                    alpha = if (isDone) 0.45f else 1f,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${task.points} pts",
+                style = MaterialTheme.typography.bodyMedium,
+                color = categoryColor.copy(alpha = if (isDone) 0.45f else 0.9f),
                 modifier = Modifier.padding(start = 8.dp),
+            )
+            if (isDone) {
+                Text(
+                    text = "✓",
+                    color = CheckGreen,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+        if (showWeek) {
+            Text(
+                text = "${task.assignedWeek.ifEmpty { "—" }} · ${if (isDone) "done" else "open"}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
@@ -306,36 +358,41 @@ private fun CategoryPickerRow(
 }
 
 /**
- * Inspect window: edit task details, change status, or delete.
+ * Inspect window: edit task details (including assigned week), toggle completed, or delete.
  */
 @Composable
 private fun TaskInspectDialog(
     task: Task,
+    currentWeekKey: String,
     onDismiss: () -> Unit,
     onUpdate: (Task) -> Unit,
-    onStatusChange: (TaskStatus) -> Unit,
+    onCompletedChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     var title by remember(task.id, task.instanceNumber) { mutableStateOf(task.title) }
     var category by remember(task.id, task.instanceNumber) { mutableStateOf(task.category) }
     var pointsText by remember(task.id, task.instanceNumber) { mutableStateOf(task.points.toString()) }
     var isWeekly by remember(task.id, task.instanceNumber) { mutableStateOf(task.isWeekly) }
+    var assignedWeek by remember(task.id, task.instanceNumber) { mutableStateOf(task.assignedWeek) }
 
     fun saveEditsAndDismiss() {
         val trimmed = title.trim()
         val parsedPoints = pointsText.toIntOrNull()?.coerceAtLeast(0) ?: task.points
+        val week = assignedWeek.trim()
         if (trimmed.isNotEmpty()) {
             val updated = task.copy(
                 title = trimmed,
                 category = category,
                 points = parsedPoints,
                 isWeekly = isWeekly,
+                assignedWeek = week,
             )
             if (
                 updated.title != task.title ||
                 updated.category != task.category ||
                 updated.points != task.points ||
-                updated.isWeekly != task.isWeekly
+                updated.isWeekly != task.isWeekly ||
+                updated.assignedWeek != task.assignedWeek
             ) {
                 onUpdate(updated)
             }
@@ -370,6 +427,23 @@ private fun TaskInspectDialog(
                     singleLine = true,
                     label = { Text("Points") },
                 )
+                OutlinedTextField(
+                    value = assignedWeek,
+                    onValueChange = { assignedWeek = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Assigned week") },
+                    supportingText = {
+                        Text("e.g. 2026-W35")
+                    },
+                )
+                if (currentWeekKey.isNotEmpty()) {
+                    TextButton(
+                        onClick = { assignedWeek = currentWeekKey },
+                    ) {
+                        Text("Set to current week ($currentWeekKey)")
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = isWeekly,
@@ -380,10 +454,16 @@ private fun TaskInspectDialog(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
-                StatusDetailRow(
-                    status = task.status,
-                    onStatusChange = onStatusChange,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = task.completed,
+                        onCheckedChange = onCompletedChange,
+                    )
+                    Text(
+                        text = "Completed",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 DetailRow(label = "Created", value = formatCreatedAt(task.createdAt))
             }
         },
@@ -398,51 +478,6 @@ private fun TaskInspectDialog(
             }
         },
     )
-}
-
-@Composable
-private fun StatusDetailRow(
-    status: TaskStatus,
-    onStatusChange: (TaskStatus) -> Unit,
-) {
-    var menuOpen by remember { mutableStateOf(false) }
-
-    Column {
-        Text(
-            text = "Status",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-        )
-        Box {
-            Text(
-                text = status.name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable { menuOpen = true }
-                    .padding(vertical = 2.dp),
-            )
-            DropdownMenu(
-                expanded = menuOpen,
-                onDismissRequest = { menuOpen = false },
-            ) {
-                TaskStatus.entries.filter { it != TaskStatus.ARCHIVED }.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.name) },
-                        onClick = {
-                            onStatusChange(option)
-                            menuOpen = false
-                        },
-                    )
-                }
-            }
-        }
-        Text(
-            text = "Tap to change",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-        )
-    }
 }
 
 @Composable
