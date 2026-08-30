@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +51,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 private val CheckGreen = Color(0xFF16A34A)
-private val FabBottomPadding = 40.dp
 
 /**
  * Main Plin screen: current-week list or full archive, with add / inspect dialogs.
@@ -59,6 +59,7 @@ private val FabBottomPadding = 40.dp
  */
 @Composable
 fun TaskListScreen(
+    onOpenSettings: () -> Unit,
     viewModel: TaskListViewModel = viewModel(),
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
@@ -70,17 +71,33 @@ fun TaskListScreen(
     val isArchive = selectedTab == TaskListTab.ARCHIVE
     val currentWeekKey = currentWeek?.key.orEmpty()
 
+    LaunchedEffect(Unit) {
+        viewModel.refreshMainView()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 20.dp, vertical = 48.dp),
         ) {
-            Text(
-                text = "Plin",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Plin",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                TextButton(onClick = onOpenSettings) {
+                    Text(
+                        text = "⚙",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                }
+            }
             if (isArchive) {
                 Text(
                     text = "Archive",
@@ -118,7 +135,7 @@ fun TaskListScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = FabBottomPadding + 56.dp),
+                    contentPadding = PaddingValues(bottom = PlinFabBottomPadding + 56.dp),
                 ) {
                     items(tasks, key = { "${it.id}-${it.instanceNumber}" }) { task ->
                         TaskRow(
@@ -136,7 +153,7 @@ fun TaskListScreen(
             onClick = { viewModel.toggleTab() },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 20.dp, end = 20.dp, bottom = FabBottomPadding),
+                .padding(start = 20.dp, end = 20.dp, bottom = PlinFabBottomPadding),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
@@ -152,7 +169,7 @@ fun TaskListScreen(
                 onClick = { showAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(start = 20.dp, end = 20.dp, bottom = FabBottomPadding),
+                    .padding(start = 20.dp, end = 20.dp, bottom = PlinFabBottomPadding),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
@@ -285,6 +302,7 @@ private fun AddTaskDialog(
                 CategoryPickerRow(
                     category = category,
                     onCategoryChange = { category = it },
+                    excludedCategories = setOf(TaskCategory.FRIEND_OF_THE_WEEK),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
@@ -322,8 +340,10 @@ private fun AddTaskDialog(
 private fun CategoryPickerRow(
     category: TaskCategory,
     onCategoryChange: (TaskCategory) -> Unit,
+    excludedCategories: Set<TaskCategory> = emptySet(),
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    val options = TaskCategory.entries.filter { it !in excludedCategories }
 
     Column {
         Text(
@@ -344,7 +364,7 @@ private fun CategoryPickerRow(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
             ) {
-                TaskCategory.entries.forEach { option ->
+                options.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(formatCategory(option)) },
                         onClick = {

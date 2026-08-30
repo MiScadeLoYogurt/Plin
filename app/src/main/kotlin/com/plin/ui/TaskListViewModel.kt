@@ -3,6 +3,7 @@ package com.plin.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.plin.data.FriendOfTheWeekSettingsStore
 import com.plin.data.PlinDatabase
 import com.plin.data.TaskService
 import com.plin.data.WeekService
@@ -31,6 +32,7 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
     private val taskService = TaskService(
         PlinDatabase.getInstance(application).taskDao(),
     )
+    private val friendOfTheWeekSettingsStore = FriendOfTheWeekSettingsStore(application)
     private val weekService = WeekService(
         weekStateStore = WeekStateStore(application),
         routines = listOf(GenerateWeeklyTasksRoutine(taskService)),
@@ -60,10 +62,19 @@ class TaskListViewModel(application: Application) : AndroidViewModel(application
             initialValue = emptyList(),
         )
 
-    init {
+    fun refreshMainView() {
         viewModelScope.launch {
             _currentWeek.value = weekService.onAppOpen()
+            maybeEnsureFriendOfTheWeek()
         }
+    }
+
+    private suspend fun maybeEnsureFriendOfTheWeek() {
+        if (!friendOfTheWeekSettingsStore.isEnabled()) {
+            return
+        }
+        val week = _currentWeek.value ?: return
+        taskService.ensureFriendOfTheWeekTask(week)
     }
 
     fun selectTab(tab: TaskListTab) {

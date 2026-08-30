@@ -15,6 +15,10 @@ import java.time.ZoneId
  */
 class TaskService(private val taskDao: TaskDao) {
 
+    companion object {
+        const val FRIEND_OF_THE_WEEK_DEFAULT_TITLE = "Friend of the Week"
+    }
+
     /**
      * Visible list: tasks whose [Task.assignedWeek] is the current week.
      */
@@ -47,6 +51,22 @@ class TaskService(private val taskDao: TaskDao) {
             ),
         )
         return taskId
+    }
+
+    /**
+     * Creates the weekly Friend of the Week task when enabled and none exists for [week].
+     */
+    suspend fun ensureFriendOfTheWeekTask(week: WeekLayout) {
+        val existing = taskDao.getFriendOfTheWeekForWeek(week.key)
+        if (existing != null) {
+            return
+        }
+        addTask(
+            title = FRIEND_OF_THE_WEEK_DEFAULT_TITLE,
+            category = TaskCategory.FRIEND_OF_THE_WEEK,
+            isWeekly = true,
+            assignedWeek = week.key,
+        )
     }
 
     /**

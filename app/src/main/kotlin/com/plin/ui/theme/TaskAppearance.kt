@@ -27,6 +27,7 @@ object TaskAppearance {
         TaskCategory.SPORT -> Color(0x1437D5)
         TaskCategory.HEALTH -> Color(0xCF3A4B)
         TaskCategory.SPECIAL -> Color(0x12F9E6)
+        TaskCategory.FRIEND_OF_THE_WEEK -> Color(0xF5A623)
     }
 
     fun backgroundForCategory(category: TaskCategory): Color =

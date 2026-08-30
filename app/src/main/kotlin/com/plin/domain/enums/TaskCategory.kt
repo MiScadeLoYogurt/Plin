@@ -13,4 +13,5 @@ enum class TaskCategory {
     SPORT,
     HEALTH,
     SPECIAL,
+    FRIEND_OF_THE_WEEK,
 }
