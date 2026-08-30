@@ -75,4 +75,15 @@ object PlinMigrations {
             db.execSQL("ALTER TABLE tasks_new RENAME TO tasks")
         }
     }
+
+    /**
+     * Adds [Task.completedAt] for ordering completed tasks by completion time.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE tasks ADD COLUMN completedAt INTEGER",
+            )
+        }
+    }
 }

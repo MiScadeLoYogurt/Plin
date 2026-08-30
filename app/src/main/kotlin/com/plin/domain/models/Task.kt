@@ -21,4 +21,5 @@ data class Task(
     val isWeekly: Boolean = false,
     val assignedWeek: String = "",
     val createdAt: Long = System.currentTimeMillis(),
+    val completedAt: Long? = null,
 )

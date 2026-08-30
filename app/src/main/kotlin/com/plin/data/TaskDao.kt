@@ -54,7 +54,8 @@ interface TaskDao {
         """
         SELECT * FROM tasks
         WHERE assignedWeek = :weekKey
-        ORDER BY createdAt DESC
+        ORDER BY completed ASC,
+            CASE WHEN completed = 0 THEN createdAt ELSE COALESCE(completedAt, createdAt) END DESC
         """,
     )
     fun observeForAssignedWeek(weekKey: String): Flow<List<Task>>
@@ -63,7 +64,8 @@ interface TaskDao {
         """
         SELECT * FROM tasks
         WHERE assignedWeek != '' AND assignedWeek < :weekKey
-        ORDER BY createdAt DESC
+        ORDER BY completed ASC,
+            CASE WHEN completed = 0 THEN createdAt ELSE COALESCE(completedAt, createdAt) END DESC
         """,
     )
     fun observeBeforeWeek(weekKey: String): Flow<List<Task>>

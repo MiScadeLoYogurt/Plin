@@ -97,7 +97,8 @@ class TaskService(private val taskDao: TaskDao) {
     }
 
     suspend fun setCompleted(task: Task, completed: Boolean) {
-        taskDao.update(task.copy(completed = completed))
+        val completedAt = if (completed) System.currentTimeMillis() else null
+        taskDao.update(task.copy(completed = completed, completedAt = completedAt))
     }
 
     suspend fun toggleCompletion(task: Task) {

@@ -50,6 +50,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 private val CheckGreen = Color(0xFF16A34A)
+private val FabBottomPadding = 40.dp
 
 /**
  * Main Plin screen: current-week list or full archive, with add / inspect dialogs.
@@ -117,7 +118,7 @@ fun TaskListScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp),
+                    contentPadding = PaddingValues(bottom = FabBottomPadding + 56.dp),
                 ) {
                     items(tasks, key = { "${it.id}-${it.instanceNumber}" }) { task ->
                         TaskRow(
@@ -135,7 +136,7 @@ fun TaskListScreen(
             onClick = { viewModel.toggleTab() },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(20.dp),
+                .padding(start = 20.dp, end = 20.dp, bottom = FabBottomPadding),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
@@ -151,7 +152,7 @@ fun TaskListScreen(
                 onClick = { showAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(20.dp),
+                    .padding(start = 20.dp, end = 20.dp, bottom = FabBottomPadding),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
